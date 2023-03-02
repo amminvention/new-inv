@@ -15,8 +15,10 @@ use App\Http\Controllers\TableController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\MiscellaneousController;
 use App\Http\Controllers\AuthenticationController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\ChartsController;
 use Illuminate\Support\Facades\Auth;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -251,11 +253,21 @@ Route::group([
     Route::get('/fir-list/{id}/form-detail-e', [GeneralController::class, 'formDetailE'])->name('admin.fir.form-detail-e');
     Route::get('/fir-list/{id}/{type}/update', [GeneralController::class, 'showformDetail'])->name('admin.fir.show-form-detail');
     Route::post('/fir-list/{id}/save', [GeneralController::class, 'formDetailSave'])->name('admin.fir.form-detail-save');
+    Route::post('/get-districts', [GeneralController::class, 'getDistricts'])->name('admin.get-districts');
+    Route::post('/get-police-stations', [GeneralController::class, 'getPoliceStations'])->name('admin.get-police-stations');
+
+    Route::get('/user-management', [UserManagementController::class, 'index'])->name('admin.user.index');
+    Route::get('/user-management/add-user', [UserManagementController::class, 'create'])->name('admin.user.create');
+    Route::get('/user-management/{id}/edit-user', [UserManagementController::class, 'edit'])->name('admin.user.edit');
+    Route::put('/user-management/{id}', [UserManagementController::class, 'update'])->name('admin.user.update');
+    Route::post('/user-management/add-user', [UserManagementController::class, 'store'])->name('admin.user.store');
 
 });
 
 Route::get('/auth-login', [GeneralController::class, 'login'])->name('auths.login');
 Route::post('/auth-login', [GeneralController::class, 'verify'])->name('auths.verify');
+
+
 
 Auth::routes([
     'register' => false, // Registration Routes...

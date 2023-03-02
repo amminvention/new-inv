@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\District;
 use App\Models\Fir;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,8 @@ use Yajra\DataTables\Facades\DataTables;
 class GeneralController extends Controller
 {
     // Login
-    public function login(){
+    public function login()
+    {
         $pageConfigs = [
             'bodyClass' => "bg-full-screen-image",
             'blankPage' => true
@@ -28,13 +30,13 @@ class GeneralController extends Controller
     public function verify(Request $request)
     {
         $user = User::where('email', $request->email)->first();
-        if(!empty($user)){
+        if (!empty($user)) {
             $credentials = $request->only('email', 'password');
             if (Auth::attempt($credentials)) {
                 return redirect('/')
                     ->withSuccess('You have Successfully loggedin');
             }
-        }else{
+        } else {
             return redirect()->route('auths.login');
         }
     }
@@ -106,8 +108,27 @@ class GeneralController extends Controller
                     }
 
                     if (request()->has('sections') && request('sections')) {
-                        $query->where('sections', 'like', "%{request('sections')}%");
+                        $query->whereHas('sections.sectionLaws', function ($query) {
+                            $query->where('section_name', 'like', '%'.request('sections').'%');
+                        });
                     }
+
+                    if (!empty(request('range')) && empty(request('district')) && empty(request('police_station'))) {
+                        $ids = DB::table('districts')->where('dis_reg_id', request('range'))->pluck('dis_id');
+                        $query->whereIn('fir_dis_id', $ids);
+                    }
+
+                    if (!empty(request('range')) && !empty(request('district')) && empty(request('police_station')))
+                    {
+                        $query->where('fir_dis_id', request('district'));
+                    }
+
+                    if (!empty(request('range')) && !empty(request('district')) && !empty(request('police_station')))
+                    {
+                        $query->where('ps_id', request('police_station'));
+                    }
+
+
                 })
                 ->make(true);
         }
@@ -348,474 +369,22 @@ class GeneralController extends Controller
                 ]
             ],
         );
-
-
-        $data['stat_b'] = $this->stat_b($id);
-        $data['stat_c'] = $this->stat_c($id);
-        $data['stat_d'] = $this->stat_d($id);
-        $data['stat_e'] = $this->stat_e($id);
+        $tbl_inv_stats = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+        $data['stat_b'] = $this->stat_b($id, $tbl_inv_stats);
+        $data['stat_c'] = $this->stat_c($id, $tbl_inv_stats);
+        $data['stat_d'] = $this->stat_d($id, $tbl_inv_stats);
+        $data['stat_e'] = $this->stat_e($id, $tbl_inv_stats);
         $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
         $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
         $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
         return view('admin.form-detail-b', $data);
     }
 
-    public function formDetailC($id)
+    private function stat_b($id, $tbl_inv_stats)
     {
-        $data['breadcrumbs'] = [
-            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Quality of Evidence"]
-        ];
-        $data['form_c'] = array(
-            [
-                'head' => 'Recovery',
-                'field_name' => 'recovery',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Statement U/S 164 CrPC',
-                'field_name' => 'statement_confession',
-                'options' => [
-                    'average',
-                    'good'
-                ]
-            ],
-            [
-                'head' => 'Quality of crime scene sketch',
-                'field_name' => 'sketch_quality',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Finger print result',
-                'field_name' => 'fingerprint_result',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Accused finger prints',
-                'field_name' => 'accused_fingerprints',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Chemical Examination result',
-                'field_name' => 'chem_exam_result',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'FSL Result',
-                'field_name' => 'fsl_result',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Accused ID Parade',
-                'field_name' => 'accused_id_parade',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Evidence developed through',
-                'field_name' => 'evidence_developed',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Evidence developed through DNA',
-                'field_name' => 'evidence_dna',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Result of digital evidence',
-                'field_name' => 'digital_evidence_result',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Result of accused sketch',
-                'field_name' => 'accused_sketch_result',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Circumstancial',
-                'field_name' => 'circumstantial_evidence',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Corroborated evidence',
-                'field_name' => 'corroborated_evidence',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Verification of accused',
-                'field_name' => 'accused_verification',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Eye Witness available',
-                'field_name' => 'eyewitness_available',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ],
-            [
-                'head' => 'Outcome of suspects interrogation',
-                'field_name' => 'suspect_interrogation_result',
-                'options' => [
-                    'negative',
-                    'positive'
-                ]
-            ],
-            [
-                'head' => 'Empties recovered from crime scene with weapon',
-                'field_name' => 'weapon_empties_recovered',
-                'options' => [
-                    'no',
-                    'yes'
-                ]
-            ]
-        );
-        $data['feedback'] = DB::table('evidence_quality')->where('fir_id', $id)->first();
-        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
-        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
-        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
-        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
-
-        $data['stat_b'] = $this->stat_b($id);
-        $data['stat_c'] = $this->stat_c($id);
-        $data['stat_d'] = $this->stat_d($id);
-        $data['stat_e'] = $this->stat_e($id);
-        return view('admin.form-detail-c', $data);
-    }
-
-    public function formDetailD($id)
-    {
-        $data['breadcrumbs'] = [
-            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Monitoring of Supervision"]
-        ];
-        $data['form_d'] = array(
-            [
-                'head' => 'Issued Supervisory Diary',
-                'field_name_1' => 'issued_supervisory_diary_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'issued_supervisory_diary_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-
-            ],
-            [
-                'head' => 'Visited place of',
-                'field_name_1' => 'visited_place_of_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'visited_place_of_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Issued Initial',
-                'field_name_1' => 'issued_initial_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'issued_initial_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Issued Instruction diary',
-                'field_name_1' => 'issued_instruction_diary_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'issued_instruction_diary_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Visited & Meet heirs of victim',
-                'field_name_1' => 'visited_meet_heirs_of_victim_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'visited_meet_heirs_of_victim_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Whether proper Section of law applied',
-                'field_name_1' => 'proper_section_of_law_applied_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'proper_section_of_law_applied_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Physical inspected the accused',
-                'field_name_1' => 'quality_of_diaries_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'quality_of_diaries_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Quality of Diaries',
-                'field_name_1' => 'daily_diary_entry_arrival_departure_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'daily_diary_entry_arrival_departure_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Daily diary entry / arrival departure',
-                'field_name_1' => 'efforts_for_arrest_of_accused_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'efforts_for_arrest_of_accused_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Efforts for the arrest of accused',
-                'field_name_1' => 'efforts_for_collection_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'efforts_for_collection_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Efforts for the collection',
-                'field_name_1' => 'quality_of_evidence_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'quality_of_evidence_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Quality of Evidence',
-                'field_name_1' => 'quality_of_investigation_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'quality_of_investigation_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Quality of investigation',
-                'field_name_1' => 'copies_of_cnic_of_pws_attached_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'copies_of_cnic_of_pws_attached_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Copies of CNIC of PWs attached',
-                'field_name_1' => 'issue_crs_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'issue_crs_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ],
-            [
-                'head' => 'Issue CRS',
-                'field_name_1' => 'monitored_by_1',
-                'options_1' => [
-                    'no',
-                    'yes'
-                ],
-                'field_name_2' => 'monitored_by_2',
-                'options_2' => [
-                    'no',
-                    'yes'
-                ],
-            ]
-        );
-        $data['feedback'] = DB::table('monitoring_supervision')->where('fir_id', $id)->first();
-        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
-        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
-        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
-        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
-        $data['stat_b'] = $this->stat_b($id);
-        $data['stat_c'] = $this->stat_c($id);
-        $data['stat_d'] = $this->stat_d($id);
-        $data['stat_e'] = $this->stat_e($id);
-        return view('admin.form-detail-d', $data);
-    }
-
-    public function formDetailE($id)
-    {
-        $data['breadcrumbs'] = [
-            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Scruitny of Legal Branch"]
-        ];
-        $data['form_e'] = array(
-            [
-                'head' => 'Quality of Investigation',
-                'field_name' => 'quality_inv',
-                'options' => [
-                    'poor',
-                    'average',
-                    'good'
-                ]
-            ],
-            [
-                'head' => 'Quality of Evidence',
-                'field_name' => 'quality_evd',
-                'options' => [
-                    'poor',
-                    'average',
-                    'good'
-                ]
-            ],
-            [
-                'head' => 'Quality of Supervision',
-                'field_name' => 'quality_sup',
-                'options' => [
-                    'poor',
-                    'average',
-                    'good'
-                ]
-            ]
-        );
-        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
-        $data['feedback'] = DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->first();
-        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
-        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
-        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
-        $data['stat_b'] = $this->stat_b($id);
-        $data['stat_c'] = $this->stat_c($id);
-        $data['stat_d'] = $this->stat_d($id);
-        $data['stat_e'] = $this->stat_e($id);
-        return view('admin.form-detail-e', $data);
-    }
-
-    public function formDetailSave(Request $request, $id)
-    {
-        $data['fir'] = Fir::where('fir_id', $id)->firstOrFail();
-
-        try {
-            $table = $request->get('table');
-            $column = $request->get('column');
-            $value = $request->get('value');
-
-            $data = DB::table($table)->where('fir_id', $id)->first();
-            if (empty($data)) {
-                DB::table($table)->insert([
-                    $column => $value,
-                    'fir_id' => $id
-                ]);
-                $message = 'Feedback Saved Successfully';
-            } else {
-                DB::table($table)->where('fir_id', $id)->update([
-                    $column => $value
-                ]);
-                $message = 'Feedback Updated Successfully';
-            }
-            return response()->json(['status' => 'success', 'message' => $message]);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
-        }
-    }
-
-
-    private function stat_b($id)
-    {
+        $total_fields_b = 28;
+        $counts_null_b = !empty($tbl_inv_stats) ? $total_fields_b - (int)$tbl_inv_stats->form_b : 0;
+        $count_not_null_b = !empty($tbl_inv_stats) ? $tbl_inv_stats->form_b : 0;
         $data['form_b'] = array(
             [
                 'head' => 'Computerized FIR',
@@ -1042,18 +611,27 @@ class GeneralController extends Controller
                 ]
             ],
         );
-        $counts_null_b = 0;
-        $count_not_null_b = 0;
         $positive_b = 0;
         $negative_b = 0;
-        $total_fields_b = 0;
-        foreach ($data['form_b'] as $key => $value) {
-            $counts_null_b += DB::table('facts_quality')->where('fir_id', $id)->whereNull($value['field_name'])->count();
-            $count_not_null_b += DB::table('facts_quality')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
-            $negative_b += DB::table('facts_quality')->where('fir_id', $id)->where($value['field_name'], 0)->count();
-            $positive_b += DB::table('facts_quality')->where('fir_id', $id)->where($value['field_name'], 1)->count();
-            $total_fields_b++;
+
+        $avg_query = DB::table('facts_quality')->where('fir_id', $id)->first();
+        if (!empty($avg_query)) {
+            foreach ($data['form_b'] as $key => $value) {
+                if ($avg_query->{$value['field_name']} == 0) {
+                    $negative_b += 1;
+                }
+                if ($avg_query->{$value['field_name']} == 1) {
+                    $positive_b += 1;
+                }
+            }
         }
+//        foreach ($data['form_b'] as $key => $value) {
+////            $counts_null_b += DB::table('facts_quality')->where('fir_id', $id)->whereNull($value['field_name'])->count();
+////            $count_not_null_b += DB::table('facts_quality')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
+//            $negative_b += DB::table('facts_quality')->where('fir_id', $id)->where($value['field_name'], 0)->count();
+//            $positive_b += DB::table('facts_quality')->where('fir_id', $id)->where($value['field_name'], 1)->count();
+//            $total_fields_b++;
+//        }
         $data['pending_b'] = $counts_null_b;
         $data['completed_b'] = $count_not_null_b;
         $data['positive_b'] = $positive_b;
@@ -1065,8 +643,9 @@ class GeneralController extends Controller
         return $data;
     }
 
-    private function stat_c($id)
+    private function stat_c($id, $tbl_inv_stats)
     {
+        $total_fields_c = 18;
         $data['form_c'] = array(
             [
                 'head' => 'Recovery',
@@ -1213,18 +792,31 @@ class GeneralController extends Controller
                 ]
             ]
         );
-        $counts_null_c = 0;
-        $count_not_null_c = 0;
+        $counts_null_c = !empty($tbl_inv_stats) ? $total_fields_c - (int)$tbl_inv_stats->form_c : 0;
+        $count_not_null_c = !empty($tbl_inv_stats) ? $tbl_inv_stats->form_c : 0;
         $positive_c = 0;
         $negative_c = 0;
-        $total_fields_c = 0;
-        foreach ($data['form_c'] as $key => $value) {
-            $counts_null_c += DB::table('evidence_quality')->where('fir_id', $id)->whereNull($value['field_name'])->count();
-            $count_not_null_c += DB::table('evidence_quality')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
-            $negative_c += DB::table('evidence_quality')->where('fir_id', $id)->where($value['field_name'], 0)->count();
-            $positive_c += DB::table('evidence_quality')->where('fir_id', $id)->where($value['field_name'], 1)->count();
-            $total_fields_c++;
+
+
+        $avg_query = DB::table('evidence_quality')->where('fir_id', $id)->first();
+        if (!empty($avg_query)) {
+            foreach ($data['form_c'] as $key => $value) {
+                if ($avg_query->{$value['field_name']} == 0) {
+                    $negative_c += 1;
+                }
+                if ($avg_query->{$value['field_name']} == 1) {
+                    $positive_c += 1;
+                }
+            }
         }
+
+//        foreach ($data['form_c'] as $key => $value) {
+////            $counts_null_c += DB::table('evidence_quality')->where('fir_id', $id)->whereNull($value['field_name'])->count();
+////            $count_not_null_c += DB::table('evidence_quality')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
+//            $negative_c += DB::table('evidence_quality')->where('fir_id', $id)->where($value['field_name'], 0)->count();
+//            $positive_c += DB::table('evidence_quality')->where('fir_id', $id)->where($value['field_name'], 1)->count();
+//            $total_fields_c++;
+//        }
         $data['pending_c'] = $counts_null_c;
         $data['completed_c'] = $count_not_null_c;
         $data['positive_c'] = $positive_c;
@@ -1236,8 +828,9 @@ class GeneralController extends Controller
         return $data;
     }
 
-    private function stat_d($id)
+    private function stat_d($id, $tbl_inv_stats)
     {
+        $total_fields_d = 30;
         $data['form_d'] = array(
             [
                 'head' => 'Issued Supervisory Diary',
@@ -1436,25 +1029,44 @@ class GeneralController extends Controller
                 ],
             ]
         );
-        $counts_null_d = 0;
-        $count_not_null_d = 0;
+        $counts_null_d = !empty($tbl_inv_stats) ? $total_fields_d - (int)$tbl_inv_stats->form_d : 0;
+        $count_not_null_d = !empty($tbl_inv_stats) ? $tbl_inv_stats->form_d : 0;
         $positive_d = 0;
         $negative_d = 0;
-        $total_fields_d = 0;
-        foreach ($data['form_d'] as $key => $value) {
-            $counts_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNull($value['field_name_1'])->count();
-            $count_not_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNotNull($value['field_name_1'])->count();
-            $negative_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_1'], 0)->count();
-            $positive_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_1'], 1)->count();
-            $total_fields_d++;
+
+
+        $avg_query = DB::table('monitoring_supervision')->where('fir_id', $id)->first();
+        if (!empty($avg_query)) {
+            foreach ($data['form_d'] as $key => $value) {
+                if ($avg_query->{$value['field_name_1']} == 0) {
+                    $negative_d += 1;
+                }
+                if ($avg_query->{$value['field_name_1']} == 1) {
+                    $positive_d += 1;
+                }
+                if ($avg_query->{$value['field_name_2']} == 0) {
+                    $negative_d += 1;
+                }
+                if ($avg_query->{$value['field_name_2']} == 1) {
+                    $positive_d += 1;
+                }
+            }
         }
-        foreach ($data['form_d'] as $key => $value) {
-            $counts_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNull($value['field_name_2'])->count();
-            $count_not_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNotNull($value['field_name_2'])->count();
-            $negative_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_2'], 0)->count();
-            $positive_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_2'], 1)->count();
-            $total_fields_d++;
-        }
+
+//        foreach ($data['form_d'] as $key => $value) {
+////            $counts_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNull($value['field_name_1'])->count();
+////            $count_not_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNotNull($value['field_name_1'])->count();
+//            $negative_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_1'], 0)->count();
+//            $positive_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_1'], 1)->count();
+//            $total_fields_d++;
+//        }
+//        foreach ($data['form_d'] as $key => $value) {
+//            $counts_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNull($value['field_name_2'])->count();
+//            $count_not_null_d += DB::table('monitoring_supervision')->where('fir_id', $id)->whereNotNull($value['field_name_2'])->count();
+//            $negative_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_2'], 0)->count();
+//            $positive_d += DB::table('monitoring_supervision')->where('fir_id', $id)->where($value['field_name_2'], 1)->count();
+//            $total_fields_d++;
+//        }
         $data['pending_d'] = $counts_null_d;
         $data['completed_d'] = $count_not_null_d;
         $data['positive_d'] = $positive_d;
@@ -1466,8 +1078,9 @@ class GeneralController extends Controller
         return $data;
     }
 
-    private function stat_e($id)
+    private function stat_e($id, $tbl_inv_stats)
     {
+        $total_fields_e = 3;
         $data['form_e'] = array(
             [
                 'head' => 'Quality of Investigation',
@@ -1497,18 +1110,30 @@ class GeneralController extends Controller
                 ]
             ]
         );
-        $counts_null_e = 0;
-        $count_not_null_e = 0;
+        $counts_null_e = !empty($tbl_inv_stats) ? $total_fields_e - (int)$tbl_inv_stats->form_e : 0;
+        $count_not_null_e = !empty($tbl_inv_stats) ? $tbl_inv_stats->form_e : 0;
         $positive_e = 0;
         $negative_e = 0;
-        $total_fields_e = 0;
-        foreach ($data['form_e'] as $key => $value) {
-            $counts_null_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->whereNull($value['field_name'])->count();
-            $count_not_null_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
-            $negative_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->where($value['field_name'], 0)->count();
-            $positive_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->where($value['field_name'], 1)->count();
-            $total_fields_e++;
+
+        $avg_query = DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->first();
+        if (!empty($avg_query)) {
+            foreach ($data['form_e'] as $key => $value) {
+                if ($avg_query->{$value['field_name']} == 0) {
+                    $negative_e += 1;
+                }
+                if ($avg_query->{$value['field_name']} == 1) {
+                    $positive_e += 1;
+                }
+            }
         }
+
+//        foreach ($data['form_e'] as $key => $value) {
+////            $counts_null_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->whereNull($value['field_name'])->count();
+////            $count_not_null_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->whereNotNull($value['field_name'])->count();
+//            $negative_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->where($value['field_name'], 0)->count();
+//            $positive_e += DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->where($value['field_name'], 1)->count();
+//            $total_fields_e++;
+//        }
         $data['pending_e'] = $counts_null_e;
         $data['completed_e'] = $count_not_null_e;
         $data['positive_e'] = $positive_e;
@@ -1518,6 +1143,528 @@ class GeneralController extends Controller
         $data['avg_e'] = $total_e > 0 ? (intval(($positive_e / ($counts_null_e + $count_not_null_e)) * 100)) : 0;
 
         return $data;
+    }
+
+    public function formDetailC($id)
+    {
+        $data['breadcrumbs'] = [
+            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Quality of Evidence"]
+        ];
+        $data['form_c'] = array(
+            [
+                'head' => 'Recovery',
+                'field_name' => 'recovery',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Statement U/S 164 CrPC',
+                'field_name' => 'statement_confession',
+                'options' => [
+                    'average',
+                    'good'
+                ]
+            ],
+            [
+                'head' => 'Quality of crime scene sketch',
+                'field_name' => 'sketch_quality',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Finger print result',
+                'field_name' => 'fingerprint_result',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Accused finger prints',
+                'field_name' => 'accused_fingerprints',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Chemical Examination result',
+                'field_name' => 'chem_exam_result',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'FSL Result',
+                'field_name' => 'fsl_result',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Accused ID Parade',
+                'field_name' => 'accused_id_parade',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Evidence developed through',
+                'field_name' => 'evidence_developed',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Evidence developed through DNA',
+                'field_name' => 'evidence_dna',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Result of digital evidence',
+                'field_name' => 'digital_evidence_result',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Result of accused sketch',
+                'field_name' => 'accused_sketch_result',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Circumstancial',
+                'field_name' => 'circumstantial_evidence',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Corroborated evidence',
+                'field_name' => 'corroborated_evidence',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Verification of accused',
+                'field_name' => 'accused_verification',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Eye Witness available',
+                'field_name' => 'eyewitness_available',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ],
+            [
+                'head' => 'Outcome of suspects interrogation',
+                'field_name' => 'suspect_interrogation_result',
+                'options' => [
+                    'negative',
+                    'positive'
+                ]
+            ],
+            [
+                'head' => 'Empties recovered from crime scene with weapon',
+                'field_name' => 'weapon_empties_recovered',
+                'options' => [
+                    'no',
+                    'yes'
+                ]
+            ]
+        );
+        $data['feedback'] = DB::table('evidence_quality')->where('fir_id', $id)->first();
+        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
+        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
+        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
+        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
+        $tbl_inv_stats = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+        $data['stat_b'] = $this->stat_b($id, $tbl_inv_stats);
+        $data['stat_c'] = $this->stat_c($id, $tbl_inv_stats);
+        $data['stat_d'] = $this->stat_d($id, $tbl_inv_stats);
+        $data['stat_e'] = $this->stat_e($id, $tbl_inv_stats);
+        return view('admin.form-detail-c', $data);
+    }
+
+    public function formDetailD($id)
+    {
+        $data['breadcrumbs'] = [
+            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Monitoring of Supervision"]
+        ];
+        $data['form_d'] = array(
+            [
+                'head' => 'Issued Supervisory Diary',
+                'field_name_1' => 'issued_supervisory_diary_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'issued_supervisory_diary_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+
+            ],
+            [
+                'head' => 'Visited place of',
+                'field_name_1' => 'visited_place_of_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'visited_place_of_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Issued Initial',
+                'field_name_1' => 'issued_initial_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'issued_initial_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Issued Instruction diary',
+                'field_name_1' => 'issued_instruction_diary_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'issued_instruction_diary_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Visited & Meet heirs of victim',
+                'field_name_1' => 'visited_meet_heirs_of_victim_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'visited_meet_heirs_of_victim_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Whether proper Section of law applied',
+                'field_name_1' => 'proper_section_of_law_applied_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'proper_section_of_law_applied_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Physical inspected the accused',
+                'field_name_1' => 'quality_of_diaries_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'quality_of_diaries_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Quality of Diaries',
+                'field_name_1' => 'daily_diary_entry_arrival_departure_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'daily_diary_entry_arrival_departure_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Daily diary entry / arrival departure',
+                'field_name_1' => 'efforts_for_arrest_of_accused_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'efforts_for_arrest_of_accused_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Efforts for the arrest of accused',
+                'field_name_1' => 'efforts_for_collection_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'efforts_for_collection_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Efforts for the collection',
+                'field_name_1' => 'quality_of_evidence_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'quality_of_evidence_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Quality of Evidence',
+                'field_name_1' => 'quality_of_investigation_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'quality_of_investigation_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Quality of investigation',
+                'field_name_1' => 'copies_of_cnic_of_pws_attached_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'copies_of_cnic_of_pws_attached_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Copies of CNIC of PWs attached',
+                'field_name_1' => 'issue_crs_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'issue_crs_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ],
+            [
+                'head' => 'Issue CRS',
+                'field_name_1' => 'monitored_by_1',
+                'options_1' => [
+                    'no',
+                    'yes'
+                ],
+                'field_name_2' => 'monitored_by_2',
+                'options_2' => [
+                    'no',
+                    'yes'
+                ],
+            ]
+        );
+        $data['feedback'] = DB::table('monitoring_supervision')->where('fir_id', $id)->first();
+        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
+        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
+        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
+        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
+        $tbl_inv_stats = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+        $data['stat_b'] = $this->stat_b($id, $tbl_inv_stats);
+        $data['stat_c'] = $this->stat_c($id, $tbl_inv_stats);
+        $data['stat_d'] = $this->stat_d($id, $tbl_inv_stats);
+        $data['stat_e'] = $this->stat_e($id, $tbl_inv_stats);
+        return view('admin.form-detail-d', $data);
+    }
+
+    public function formDetailE($id)
+    {
+        $data['breadcrumbs'] = [
+            ['link' => "/", 'name' => "Dashboard"], ['link' => "/fir-list", 'name' => "Fir List"], ['name' => "Scruitny of Legal Branch"]
+        ];
+        $data['form_e'] = array(
+            [
+                'head' => 'Quality of Investigation',
+                'field_name' => 'quality_inv',
+                'options' => [
+                    'poor',
+                    'average',
+                    'good'
+                ]
+            ],
+            [
+                'head' => 'Quality of Evidence',
+                'field_name' => 'quality_evd',
+                'options' => [
+                    'poor',
+                    'average',
+                    'good'
+                ]
+            ],
+            [
+                'head' => 'Quality of Supervision',
+                'field_name' => 'quality_sup',
+                'options' => [
+                    'poor',
+                    'average',
+                    'good'
+                ]
+            ]
+        );
+        $data['fir'] = Fir::with('investigationOfficer.employee.rank:rank_id,rank_name_en', 'detail:fd_id,fd_fir_id,fir_short_detail', 'district.range:dis_id,dist_name_eng', 'district:dis_id,dis_reg_id,dist_name_eng', 'policeStation:ps_id,ps_name_eng', 'sections.sectionLaws:sec_id,section_name', 'investigationOfficer.employee:pe_id,pe_name,pe_rank')->where('fir_id', $id)->first();
+        $data['feedback'] = DB::table('facts_scrutiny_legal_branch')->where('fir_id', $id)->first();
+        $data['total_suspects'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->count();
+        $data['total_arrested'] = DB::table('fir_witnesses')->where('wit_id', $data['fir']->fir_id)->where('wit_arrest_date', '!=', '0000-00-00')->whereNotNull('wit_arrest_date')->count();
+        $data['total_absconder'] = DB::table('register4')->where('fir_id', $data['fir']->fir_id)->where('status_person', 7)->count();
+        $tbl_inv_stats = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+        $data['stat_b'] = $this->stat_b($id, $tbl_inv_stats);
+        $data['stat_c'] = $this->stat_c($id, $tbl_inv_stats);
+        $data['stat_d'] = $this->stat_d($id, $tbl_inv_stats);
+        $data['stat_e'] = $this->stat_e($id, $tbl_inv_stats);
+        return view('admin.form-detail-e', $data);
+    }
+
+    public function formDetailSave(Request $request, $id)
+    {
+        $data['fir'] = Fir::where('fir_id', $id)->firstOrFail();
+
+        try {
+            $table = $request->get('table');
+            $column = $request->get('column');
+            $value = $request->get('value');
+
+            $data = DB::table($table)->where('fir_id', $id)->first();
+            $tbl_inv_stats = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+            if (empty($tbl_inv_stats)) {
+                DB::table('tbl_inv_stats')->insert([
+                    'fir_id' => $id,
+                    'form_b' => 0,
+                    'form_c' => 0,
+                    'form_d' => 0,
+                    'form_e' => 0,
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now()
+                ]);
+            }
+
+            if (empty($data)) {
+                DB::table($table)->insert([
+                    $column => $value,
+                    'fir_id' => $id
+                ]);
+                $message = 'Feedback Saved Successfully';
+
+                $form_data = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+                $field_name = '';
+                if ($table == 'facts_quality') {
+                    $field_name = 'form_b';
+                    $count_column = $form_data->form_b;
+                } elseif ($table == 'evidence_quality') {
+                    $field_name = 'form_c';
+                    $count_column = $form_data->form_c;
+                } elseif ($table == 'monitoring_supervision') {
+                    $field_name = 'form_d';
+                    $count_column = $form_data->form_d;
+                } elseif ($table == 'facts_scrutiny_legal_branch') {
+                    $field_name = 'form_e';
+                    $count_column = $form_data->form_e;
+                }
+                DB::table('tbl_inv_stats')
+                    ->where('fir_id', $id)
+                    ->update([
+                        $field_name => $count_column + 1
+                    ]);
+
+
+            } else {
+
+                $tab = DB::table($table)->where('fir_id', $id)->whereNull($column)->first();
+                if (!empty($tab)) {
+
+                    $form_data = DB::table('tbl_inv_stats')->where('fir_id', $id)->first();
+                    $field_name = '';
+                    if ($table == 'facts_quality') {
+                        $field_name = 'form_b';
+                        $count_column = $form_data->form_b;
+                    } elseif ($table == 'evidence_quality') {
+                        $field_name = 'form_c';
+                        $count_column = $form_data->form_c;
+                    } elseif ($table == 'monitoring_supervision') {
+                        $field_name = 'form_d';
+                        $count_column = $form_data->form_d;
+                    } elseif ($table == 'facts_scrutiny_legal_branch') {
+                        $field_name = 'form_e';
+                        $count_column = $form_data->form_e;
+                    }
+                    DB::table('tbl_inv_stats')
+                        ->where('fir_id', $id)
+                        ->update([
+                            $field_name => $count_column + 1
+                        ]);
+
+
+                }
+
+
+                DB::table($table)->where('fir_id', $id)->update([
+                    $column => $value
+                ]);
+                $message = 'Feedback Updated Successfully';
+            }
+
+
+            return response()->json(['status' => 'success', 'message' => $message]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+        }
     }
 
     public function showformDetail($id, $type)
@@ -2143,5 +2290,27 @@ class GeneralController extends Controller
             );
         }
         return view('admin.form-detail', $data);
+    }
+
+    public function getDistricts(Request $request)
+    {
+        $data = DB::table('districts')->where('dis_reg_id', $request->id)->get();
+        $option = '<option value="0">Select District</option>';
+        foreach ($data as $row)
+        {
+            $option .= '<option value="'.$row->dis_id.'">'. $row->dist_name_eng .'</option>';
+        }
+        echo $option;
+    }
+
+    public function getPoliceStations(Request $request)
+    {
+        $data = DB::table('police_stations')->where('district_id', $request->id)->where('ps_type', 'PS')->get();
+        $option = '<option value="0">Select Police Station</option>';
+        foreach ($data as $row)
+        {
+            $option .= '<option value="'.$row->ps_id.'">'. $row->ps_name_eng .'</option>';
+        }
+        echo $option;
     }
 }

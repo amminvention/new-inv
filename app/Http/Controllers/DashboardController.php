@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Fir;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -26,6 +27,23 @@ class DashboardController extends Controller
           ->whereHas('sections', function ($query) {
               $query->whereIn('fs_section_id', [277, 401, 397, 403, 399])->where('is_primary', 1);
           })->limit(10)->get();
+
+      $data['fir_completed'] = DB::table('tbl_fir')
+          ->join('tbl_inv_stats', 'tbl_fir.fir_id', '=', 'tbl_inv_stats.fir_id')
+          ->where('form_b', 28)
+          ->where('form_c', 18)
+          ->where('form_d', 30)
+          ->where('form_e', 3)
+          ->count();
+
+      $data['fir_in_progress'] = DB::table('tbl_fir')
+          ->join('tbl_inv_stats', 'tbl_fir.fir_id', '=', 'tbl_inv_stats.fir_id')
+          ->where('form_b','<', 28)
+          ->orWhere('form_c', '<', 18)
+          ->orWhere('form_d', '<', 30)
+          ->orWhere('form_e', '<', 3)
+          ->count();
+
     return view('/content/dashboard/dashboard-ecommerce', ['pageConfigs' => $pageConfigs, 'data' => $data]);
   }
 }

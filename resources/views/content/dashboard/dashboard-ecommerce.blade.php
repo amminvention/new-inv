@@ -52,7 +52,7 @@
                   </div>
                 </div>
                 <div class="my-auto">
-                  <h4 class="fw-bolder mb-0">8.549k</h4>
+                  <h4 class="fw-bolder mb-0">{{ $data['fir_completed'] }}</h4>
                   <p class="card-text font-small-3 mb-0">Completed Cases</p>
                 </div>
               </div>
@@ -65,7 +65,7 @@
                   </div>
                 </div>
                 <div class="my-auto">
-                  <h4 class="fw-bolder mb-0">1.423k</h4>
+                  <h4 class="fw-bolder mb-0">{{ $data['total_cases'] - $data['fir_completed'] }}</h4>
                   <p class="card-text font-small-3 mb-0">Pending Cases</p>
                 </div>
               </div>
@@ -78,7 +78,7 @@
                   </div>
                 </div>
                 <div class="my-auto">
-                  <h4 class="fw-bolder mb-0">9745</h4>
+                  <h4 class="fw-bolder mb-0">{{ $data['fir_in_progress'] }}</h4>
                   <p class="card-text font-small-3 mb-0">In Progress Cases</p>
                 </div>
               </div>
@@ -123,9 +123,9 @@
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
                                 <td>
-                                    Range: {{ $data->district->range->dist_name_eng }} <br>
-                                    District: {{ $data->district->dist_name_eng }} <br>
-                                    Police Station: {{ $data->policeStation->ps_name_eng }}
+                                    <strong>Range</strong>: {{ $data->district->range->dist_name_eng }} <br>
+                                    <strong>District</strong>: {{ $data->district->dist_name_eng }} <br>
+                                    <strong>Police Station</strong>: {{ $data->policeStation->ps_name_eng }}
                                 </td>
                                 <td>{{ $data->fir_no }} / {{ $data->fir_year }}</td>
                                 <td>{!! '<span class="badge bg-light-info">' . implode(" | ", $data->sections->pluck('sectionLaws')->pluck('section_name')->toArray()) . '</span>' !!}</td>

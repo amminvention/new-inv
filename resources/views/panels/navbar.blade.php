@@ -76,11 +76,11 @@
             @if (Auth::check())
               {{ Auth::user()->name }}
             @else
-              DIGP Investigation
+
             @endif
           </span>
           <span class="user-status">
-            Admin
+            Administrator
           </span>
         </div>
         <span class="avatar">

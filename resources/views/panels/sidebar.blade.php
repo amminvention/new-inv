@@ -38,6 +38,13 @@
                     <span class="menu-title text-truncate">FIR List</span>
                 </a>
             </li>
+            <li class="nav-item  ">
+                <a href="{{ url('/user-management') }}"
+                   class="d-flex align-items-center" target="_self">
+                    <i data-feather="file-text"></i>
+                    <span class="menu-title text-truncate">User Management</span>
+                </a>
+            </li>
 {{--            <li class="nav-item  ">--}}
 {{--                <a href="{{ url('/report') }}"--}}
 {{--                   class="d-flex align-items-center" target="_self">--}}

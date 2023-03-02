@@ -28,8 +28,8 @@
                                 <div class="col-3">
                                     <div class="mb-1">
                                         <label class="form-label" for="range">Range</label>
-                                        <select name="range" id="range" class="form-control">
-                                            <option value="">Select</option>
+                                        <select name="range" id="range" class="form-control" onchange="getDistricts(this.value)">
+                                            <option value="">Select Range</option>
                                             @foreach($range as $key => $value)
                                                 <option value="{{ $key }}">{{ $value }}</option>
                                             @endforeach
@@ -39,8 +39,8 @@
                                 <div class="col-3">
                                     <div class="mb-1">
                                         <label class="form-label" for="district">District</label>
-                                        <select name="district" id="district" class="form-control">
-                                            <option value="">Select</option>
+                                        <select name="district" id="district" class="form-control" onchange="getPoliceStations(this.value)">
+                                            <option value="">Select District</option>
                                         </select>
                                     </div>
                                 </div>
@@ -48,7 +48,7 @@
                                     <div class="mb-1">
                                         <label class="form-label" for="police_station">Police Station</label>
                                         <select name="police_station" id="police_station" class="form-control">
-                                            <option value="">Select</option>
+                                            <option value="">Select Police Station</option>
                                         </select>
                                     </div>
                                 </div>
@@ -175,5 +175,33 @@
                 table.draw();
             })
         })
+
+        function getDistricts(id) {
+            $.ajax({
+                type:'POST',
+                url:'/get-districts',
+                data: {
+                    '_token' : '{{ csrf_token() }}',
+                    'id': id
+                },
+                success:function(data) {
+                    $("#district").html(data);
+                }
+            });
+        }
+
+        function getPoliceStations(id) {
+            $.ajax({
+                type:'POST',
+                url:'/get-police-stations',
+                data: {
+                    '_token' : '{{ csrf_token() }}',
+                    'id': id
+                },
+                success:function(data) {
+                    $("#police_station").html(data);
+                }
+            });
+        }
     </script>
 @endsection
